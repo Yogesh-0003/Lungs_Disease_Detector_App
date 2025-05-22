@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lung Disease Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-image: url('https://cdn.pixabay.com/photo/2020/03/04/09/01/medical-4906072_1280.jpg');
+      background-size: cover;
+      background-position: center;
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      background-color: rgba(255, 255, 255, 0.95);
+      max-width: 500px;
+      margin: 5% auto;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    h2 {
+      color: #1976D2;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #1976D2;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #1565C0;
+    }
+    #result, #spoken-text {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-top: 20px;
+      min-height: 24px;
+    }
+    h3 {
+      margin-top: 30px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+  <h2>Lung Disease Detector</h2>
+
+   <!-- Image Upload  -->
+  <input type="file" name="image" id="image" required accept="image/*">
+  <p id="file-name" style="color: green;"></p>
+
+
+  <!-- Voice Input -->
+  <h3>Or ask your question:</h3>
+  <button id="start-recording-btn">🎤 Speak</button>
+  <p id="spoken-text"></p>
+
+  <!-- Predict Button -->
+  <br>
+  <button id="predict-btn">📤 Predict</button>
+
+  <!-- Prediction Result -->
+  <h3>Prediction:</h3>
+  <p id="result"></p>
+</div>
+
+<script>
+  let uploadedImageFile = null;
+  let voiceReceived = false;
+
+  // Image upload tracking
+  document.getElementById('image').addEventListener('change', function(e) {
+  uploadedImageFile = e.target.files[0];
+  document.getElementById('file-name').textContent = "Uploaded: " + uploadedImageFile.name;
+  document.getElementById('result').textContent = '';
+  voiceReceived = false;  // reset voice input when new image is uploaded
+  document.getElementById('spoken-text').textContent = '';
+});
+
+
+  // Voice input handler
+  document.getElementById('start-recording-btn').addEventListener('click', function() {
+    if (!uploadedImageFile) {
+      alert("Please upload an image first.");
+      return;
+    }
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+
+    recognition.onresult = async function(event) {
+      const spokenText = event.results[0][0].transcript.toLowerCase();
+      document.getElementById('spoken-text').textContent = "You said: " + spokenText;
+
+      // Check if user asked about disease
+      if (spokenText.includes("which disease") || spokenText.includes("what disease")) {
+        voiceReceived = true;
+        document.getElementById('result').textContent = "You asked about the disease. Now click Predict.";
+      } else {
+        document.getElementById('result').textContent = "Waiting for your question about disease...";
+      }
+    };
+
+    recognition.start();
+  });
+
+  // Predict button handler
+  document.getElementById('predict-btn').addEventListener('click', async function() {
+    if (!uploadedImageFile) {
+      alert("Please upload an image first.");
+      return;
+    }
+
+    if (!voiceReceived) {
+      alert("Please speak your question first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', uploadedImageFile);
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      document.getElementById('result').textContent = data.prediction;
+
+      // Speech output
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance("The predicted disease is " + data.prediction);
+      utter.lang = 'en-US';
+      synth.speak(utter);
+    } catch (error) {
+      alert("Error during prediction. Please try again.");
+    }
+  });
+</script>
+
+</body>
+</html>
